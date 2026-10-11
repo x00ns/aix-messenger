@@ -21,11 +21,11 @@ std::string hashPassword(const std::string& passw) {
     return std::string(hashed);
 }
 // reg user
-int64_t reg_user(Database& db, const std::string& name const std::string& passw) {
+int64_t reg_user(Database& db, const std::string& name, const std::string& passw) {
     if (name.empty()) {
         std::cout << RED << "[ ERR ] Name and email cannot be empty!\n" << RESET;
         return -1;
-    }]
+    }
     
     std::string new_hash = hashPassword(passw);
 

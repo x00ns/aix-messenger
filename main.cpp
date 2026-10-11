@@ -68,7 +68,7 @@ int64_t registration(Database& db) {
     // passw.empty()
     if (passw.empty()) { cout << RED << "[ ERR ] Password is empty!\n" << RESET; return -1; }
     // reg user
-    return reg_user(db, name, email, passw);
+    return reg_user(db, name, passw);
 }
 
 int64_t sendMsg(Database& db, int64_t current_user_id) {
@@ -140,7 +140,7 @@ int64_t loginUser(Database& db, int64_t current_user_id) {
     }
     // input username
     cout << "Enter username: ";
-    if (!std::getline(std::cin, email)) {
+    if (!std::getline(std::cin, name)) {
         return -1;
     }
     if (name.empty()) {
@@ -157,7 +157,7 @@ int64_t loginUser(Database& db, int64_t current_user_id) {
         return -1;
     }
 
-    return login_user(db, email, passw);
+    return login_user(db, name, passw);
 }
 
 std::vector<Message> readMsgs(Database& db, int64_t recipient_id) {
