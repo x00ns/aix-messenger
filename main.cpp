@@ -47,7 +47,7 @@ void clear_screen() {
 }
 
 int64_t registration(Database& db) {
-    std::string name, email, passw;
+    std::string name, passw;
     // username
     cout << "Your name: ";
     if (!std::getline(std::cin, name)) {
@@ -74,7 +74,7 @@ int64_t registration(Database& db) {
 int64_t sendMsg(Database& db, int64_t current_user_id) {
     std::string msg_text, recip_inp;
     int64_t recip_id;
-    
+    // EOF :)
      if (std::cin.eof() || !std::cin) {
         cout << "\n";
         return -1;
@@ -127,7 +127,7 @@ int64_t sendMsg(Database& db, int64_t current_user_id) {
 }
 
 int64_t loginUser(Database& db, int64_t current_user_id) {
-    std::string email, passw;
+    std::string name, passw;
 
     if (current_user_id != -1) {
         cout << RED << "[ ERR ] You already logged in!\n" << RESET;
