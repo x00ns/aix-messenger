@@ -22,7 +22,6 @@ bool Database::initTables() {
         "CREATE TABLE IF NOT EXISTS users ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
         "name TEXT UNIQUE NOT NULL, "
-        "email TEXT UNIQUE NOT NULL, "
         "passw TEXT);";
     // create messages
     const char* createMsgs =
