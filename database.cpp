@@ -52,7 +52,7 @@ bool Database::initTables() {
 }
 // registration users
 int64_t Database::db_regUser(const std::string& name, const std::string& email, const std::string& passw) {
-    const char* sql = "INSERT INTO users (name, email, passw) VALUES (?, ?, ?);";
+    const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -60,7 +60,6 @@ int64_t Database::db_regUser(const std::string& name, const std::string& email, 
     }
 
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, email.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, passw.c_str(), -1, SQLITE_STATIC);
 
     int rc = sqlite3_step(stmt);
@@ -114,7 +113,7 @@ bool Database::db_delUser(int64_t id) {
 }
 
 int64_t Database::db_loginUser(const std::string& email, const std::string& passw) {
-    const char* sql = "SELECT id, passw FROM users WHERE email = ?;";
+    const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
