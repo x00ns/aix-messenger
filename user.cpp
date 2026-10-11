@@ -2,7 +2,7 @@
 #include "database.hpp"
 #include <crypt.h>
 #include <iostream>
-// hash email
+// hash password
 std::string hashPassword(const std::string& passw) {
     char salt[CRYPT_GENSALT_OUTPUT_SIZE];
 
