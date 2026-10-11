@@ -14,27 +14,23 @@ std::string hashPassword(const std::string& passw);
 class User {
 private:
     std::string name = "Guest";
-    std::string email = "example@mail.com";
     std::string hash_p = "";
     int64_t id = -1;  //unknown id
 public:
     User() = default;
-    User(const std::string& n, const std::string& e, const std::string& p, int64_t new_id) : name(n), email(e), hash_p(p), id(new_id) {}
+    User(const std::string& n, const std::string& p, int64_t new_id) : name(n), hash_p(p), id(new_id) {}
     // getters
     std::string getName() const { return name; }
     std::string getHash() const { return hash_p; }
     int64_t getId() const { return id; }
     // setters
     void setName(const std::string& n) { name = n; }
-    void setEmail(const std::string& e) {
-        email = e;
-    }
     void setId(int64_t new_id) { id = new_id; }
 };
 // reg user
-int64_t reg_user(Database& db, const std::string& name, const std::string& email, const std::string& passw);
+int64_t reg_user(Database& db, const std::string& name, const std::string& passw);
 // login user
-int64_t login_user(Database& db, const std::string& email, const std::string& passw);
+int64_t login_user(Database& db, const std::string& name, const std::string& passw);
 // delete user
 bool delete_user(Database& db, int64_t current_user_id);
 // logout user
