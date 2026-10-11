@@ -120,7 +120,7 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
         return -1;
     }
     // bind email
-    sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
 
     int rc = sqlite3_step(stmt);
 
@@ -128,7 +128,7 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
         int64_t user_id = sqlite3_column_int64(stmt, 0);
         const char* db_hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
 
-        crypt_data data;
+        crypt_data data{};
         char* checked_hash = crypt_rn(passw.c_str(), db_hash, &data, sizeof(data));
 
         if (checked_hash && std::string(checked_hash) == db_hash) {
