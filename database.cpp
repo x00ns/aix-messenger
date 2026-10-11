@@ -51,8 +51,8 @@ bool Database::initTables() {
     return true;
 }
 // registration users
-int64_t Database::db_regUser(const std::string& name, const std::string& email, const std::string& passw) {
-    const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?, ?);";
+int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
+    const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -60,7 +60,7 @@ int64_t Database::db_regUser(const std::string& name, const std::string& email, 
     }
 
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, passw.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, passw.c_str(), -1, SQLITE_STATIC);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
