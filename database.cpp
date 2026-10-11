@@ -112,7 +112,7 @@ bool Database::db_delUser(int64_t id) {
     return false;
 }
 
-int64_t Database::db_loginUser(const std::string& email, const std::string& passw) {
+int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
     const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
