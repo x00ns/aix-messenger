@@ -60,19 +60,12 @@ int64_t registration(Database& db) {
         cout << "\n";
         return -1;
     }
-    // email
-    cout << "Your email: ";
-    if (!std::getline(std::cin, email)) {
-        return -1;
-    }
-    // email.empty()
-    if (email.empty()) { cout << RED << "[ ERR ] Email is empty!\n" << RESET; return -1; }
     // password
     cout << "Enter password: ";
     if (!std::getline(std::cin, passw)) {
         return -1;
     }
-    // email.empty()
+    // passw.empty()
     if (passw.empty()) { cout << RED << "[ ERR ] Password is empty!\n" << RESET; return -1; }
     // reg user
     return reg_user(db, name, email, passw);
@@ -145,12 +138,12 @@ int64_t loginUser(Database& db, int64_t current_user_id) {
         cout << "\n";
         return -1;
     }
-    // inpit email
-    cout << "Enter email: ";
+    // input username
+    cout << "Enter username: ";
     if (!std::getline(std::cin, email)) {
         return -1;
     }
-    if (email.empty()) {
+    if (name.empty()) {
         cout << RED << "[ ERR ] Email is empty!\n" << RESET;
         return -1;
     }
