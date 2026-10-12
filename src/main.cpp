@@ -176,7 +176,10 @@ std::vector<Message> readMsgs(Database& db, int64_t recipient_id) {
 }
 
 int main() {
-    Database db("aix.db");
+    const char* home = std::getenv("HOME");
+    std::string db_path = std::string(home) + "/.aix-messenger/aix.db";
+    // create DB
+    Database db(db_path);
     db.initTables();
     cout << CLEAR;
     //bg
