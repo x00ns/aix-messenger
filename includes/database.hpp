@@ -22,4 +22,5 @@ public:
     bool db_delUser(int64_t id);
     int64_t db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text);
     std::vector<Message> db_readMsgs(int64_t recipient_id);
+    bool db_logoutUser(int64_t id);
 };

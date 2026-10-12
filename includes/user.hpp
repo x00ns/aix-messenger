@@ -32,6 +32,6 @@ int64_t reg_user(Database& db, const std::string& name, const std::string& passw
 // login user
 int64_t login_user(Database& db, const std::string& name, const std::string& passw);
 // delete user
-bool delete_user(Database& db, int64_t current_user_id);
+bool delete_user(Database& db, int64_t& current_user_id);
 // logout user
-bool logout_user(int64_t current_user_id);
+bool logout_user(Database& db, int64_t& current_user_id);
