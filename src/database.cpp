@@ -3,6 +3,12 @@
 #include <cstdint>
 #include <crypt.h>
 #include <sqlite3.h>
+#include <random>
+
+uint64_t generateToken() {
+    std::random_device rd;
+    return (static_cast<uint64_t>(rd()) << 32) | rd();
+}
 
 Database::Database(const std::string& db_name) {
     if (sqlite3_open(db_name.c_str(), &db) != SQLITE_OK) {
@@ -22,6 +28,7 @@ bool Database::initTables() {
         "CREATE TABLE IF NOT EXISTS users ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
         "name TEXT UNIQUE NOT NULL, "
+        "session_token INTEGER DEFAULT 0, "
         "passw TEXT);";
     // create messages
     const char* createMsgs =
@@ -65,12 +72,32 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    if (rc == SQLITE_DONE) {
-        return sqlite3_last_insert_rowid(db);
+    if (rc != SQLITE_DONE) {
+        return -1;
     }
+    // save user id
+    int64_t user_id = sqlite3_last_insert_rowid(db);
+   // apply session token
+    uint64_t token = generateToken();
+    const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
+
+    if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
+        return -1;
+    }
+
+    sqlite3_bind_int64(stmt, 1, token);
+    sqlite3_bind_int64(stmt, 2, user_id);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return user_id;
+    }
+
     return -1;
 }
-
+// send message
 int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text) {
     const char* sql = "INSERT INTO messages (recipient_id, author_id, msg_text) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
@@ -105,6 +132,7 @@ bool Database::db_delUser(int64_t id) {
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
+
     if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
         return true;
     }
@@ -123,25 +151,45 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
 
     int rc = sqlite3_step(stmt);
+    int64_t user_id = -1;
+    bool success = false;
 
     if (rc == SQLITE_ROW) {
-        int64_t user_id = sqlite3_column_int64(stmt, 0);
+        user_id = sqlite3_column_int64(stmt, 0);
         const char* db_hash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
 
         crypt_data data{};
         char* checked_hash = crypt_rn(passw.c_str(), db_hash, &data, sizeof(data));
 
         if (checked_hash && std::string(checked_hash) == db_hash) {
-            sqlite3_finalize(stmt);
-            return user_id;
+            success = true;
         }
     }
 
     sqlite3_finalize(stmt);
 
+    if (success && user_id != -1) {
+        uint64_t token = generateToken();
+        const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
+
+        if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
+            return -1;
+        }
+
+        sqlite3_bind_int64(stmt, 1, token);
+        sqlite3_bind_int64(stmt, 2, user_id);
+
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
+            return user_id;
+        }
+    }
+
     return -1;
 }
-
+// inbox
 std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
     const char* sql = "SELECT author_id, msg_text, id FROM messages WHERE recipient_id = ? AND readed = 0;";
     sqlite3_stmt* stmt;
@@ -181,4 +229,24 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
     }
 
     return incoming_msgs;
+}
+
+bool Database::db_logoutUser(int64_t id) {
+    const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_int64(stmt, 1, id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
+        return true;
+    }
+
+    return false;
 }

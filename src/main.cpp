@@ -233,7 +233,7 @@ int main() {
                 current_user_id = logged_in;
             }
         } else if (command == "logout") {
-            if (logout_user(current_user_id)) {
+            if (logout_user(db, current_user_id)) {
                 current_user_id = -1;
             }
         } else if (command == "inbox") {

@@ -6,7 +6,7 @@
 std::string hashPassword(const std::string& passw) {
     char salt[CRYPT_GENSALT_OUTPUT_SIZE];
 
-    crypt_data data;
+    crypt_data data{};
 
     if (!crypt_gensalt_rn("$y$", 10, nullptr, 0, salt, sizeof(salt))) {
         return "";
@@ -40,7 +40,7 @@ int64_t reg_user(Database& db, const std::string& name, const std::string& passw
     return next_id;
 }
 // delete user
-bool delete_user(Database& db, int64_t current_user_id) {
+bool delete_user(Database& db, int64_t& current_user_id) {
     if (current_user_id == -1) {
         std::cout << RED << "[ ERR ] No user to delete!\n" << RESET;
         return false;
@@ -74,13 +74,18 @@ int64_t login_user(Database& db, const std::string& name, const std::string& pas
     return user_id;
 }
 
-bool logout_user(int64_t current_user_id) {
+bool logout_user(Database& db, int64_t& current_user_id) {
     if (current_user_id == -1) {
         std::cout << RED << "[ ERR ] No user to logout\n" << RESET;
         return false;
     }
 
-    std::cout << GREEN << "[ OK ] Successfully logged out!\n" << RESET;
-    current_user_id = -1;
-    return true;
+    if (db.db_logoutUser(current_user_id)) {
+        std::cout << GREEN << "[ OK ] Successfully logged out!\n" << RESET;
+
+        current_user_id = -1;
+        return true;
+    } else {
+        return false;
+    }
 }
