@@ -44,8 +44,8 @@ void client(int client_socket, Database& db) {
             // send msg
             case CommandType::MSG: {
                 int64_t author_id = -1, recipient_id = -1;
-                read(client_socket, &author_id, sizeof(author_id));
                 read(client_socket, &recipient_id, sizeof(recipient_id));
+                read(client_socket, &author_id, sizeof(author_id));
                 std::string msg_text = read_string(client_socket);
                 // write a sended msgs
                 int64_t msg_id = db.db_sendMsg(recipient_id, author_id, msg_text);
