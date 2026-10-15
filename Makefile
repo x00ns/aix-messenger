@@ -4,8 +4,13 @@ LDFLAGS = -lsqlite3 -lcrypt
 
 TARGET = aix
 
-$(TARGET): main.o user.o database.o message.o
-	$(CXX) $(CXXFLAGS) main.o user.o message.o database.o -o $(TARGET) $(LDFLAGS)
+all: aix_server aix_client
+
+aix_client: main.o client.o
+	$(CXX) $(CXXFLAGS) main.o client.o -o aix_client
+
+aix_server: server.o database.o message.o user.o
+	$(CXX) $(CXXFLAGS) server.o database.o message.o user.o -o aix_server $(LDFLAGS)
 
 main.o: src/main.cpp includes/user.hpp
 	$(CXX) $(CXXFLAGS) -c src/main.cpp
@@ -19,5 +24,11 @@ message.o: src/message.cpp includes/message.hpp
 database.o: src/database.cpp includes/database.hpp
 	$(CXX) $(CXXFLAGS) -c src/database.cpp
 
+server.o: src/server.cpp includes/protocol.hpp
+	$(CXX) $(CXXFLAGS) -c src/server.cpp
+
+client.o: src/client.cpp includes/protocol.hpp
+	$(CXX) $(CXXFLAGS) -c src/client.cpp
+
 clean:
-	rm -f *.o aix.db $(TARGET)
+	rm -f *.o aix.db all

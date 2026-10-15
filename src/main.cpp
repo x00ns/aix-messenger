@@ -1,11 +1,22 @@
 #include <iostream>
+#include <sqlite3.h>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include "../includes/message.hpp"
 #include "../includes/user.hpp"
-#include "../includes/database.hpp"
+#include "..//includes/protocol.hpp"
 using std::cout;
 using std::string_view;
+// commands
+int64_t reg_user(int server_socket, const std::string& name, const std::string& passw);
+int64_t login_user(int server_socket, const std::string& name, const std::string& passw);
+int64_t send_msg(int server_socket, int64_t author_id, int64_t recip_id, const std::string& msg_text);
+bool logout_user(int server_socket, int64_t& current_user_id);
+bool del_user(int server_socket, int64_t& current_user_id);
 // strings
 constexpr string_view STR = "> ";
 constexpr string_view UNKNOWN_COMMAND = "\033[31m[ ERR ] unknown command\033[0m";
@@ -46,7 +57,7 @@ void clear_screen() {
     cout << CLEAR;
 }
 
-int64_t registration(Database& db) {
+int64_t registration_ui(int server_socket) {
     std::string name, passw;
     // username
     cout << "Your name: ";
@@ -68,10 +79,10 @@ int64_t registration(Database& db) {
     // passw.empty()
     if (passw.empty()) { cout << RED << "[ ERR ] Password is empty!\n" << RESET; return -1; }
     // reg user
-    return reg_user(db, name, passw);
+    return reg_user(server_socket, name, passw);
 }
 
-int64_t sendMsg(Database& db, int64_t current_user_id) {
+int64_t sendMsg_ui(int server_socket, int64_t current_user_id) {
     std::string msg_text, recip_inp;
     int64_t recip_id;
     // EOF :)
@@ -114,7 +125,7 @@ int64_t sendMsg(Database& db, int64_t current_user_id) {
         return -1;
     }
     
-    int64_t res = db.db_sendMsg(recip_id, current_user_id, msg_text);
+    int64_t res = send_msg(server_socket, recip_id, current_user_id, msg_text);
     
     if (res != -1) {
         cout << GREEN << "[ OK ] Message sent!\n" << RESET;
@@ -126,7 +137,7 @@ int64_t sendMsg(Database& db, int64_t current_user_id) {
     return res;
 }
 
-int64_t loginUser(Database& db, int64_t current_user_id) {
+int64_t loginUser_ui(int server_socket, int64_t current_user_id) {
     std::string name, passw;
 
     if (current_user_id != -1) {
@@ -157,30 +168,31 @@ int64_t loginUser(Database& db, int64_t current_user_id) {
         return -1;
     }
 
-    return login_user(db, name, passw);
-}
-
-std::vector<Message> readMsgs(Database& db, int64_t recipient_id) {
-    if (recipient_id == -1) {
-        cout << RED << "[ ERR ] Log in first!\n" << RESET;
-        return std::vector<Message>();
-    }
-
-    auto msgs = read_msgs(db, recipient_id);
-
-    if (msgs.empty()) {
-        cout << YELLOW << "Your inbox is empty\n" << RESET;
-    }
-
-    return msgs;
+    return login_user(server_socket, name, passw);
 }
 
 int main() {
-    const char* home = std::getenv("HOME");
-    std::string db_path = std::string(home) + "/.aix-messenger/aix.db";
-    // create DB
-    Database db(db_path);
-    db.initTables();
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket < 0) {
+        std::cerr << RED << "[ ERR ] Cannot create socket!\n" << RESET;
+        return 1;
+    }
+    // listen port 443
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8080);
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+        std::cerr << RED << "[ ERR ] Invalid address!\n" << RESET;
+        return -1;
+    }
+    // connecting to server
+    cout << "Connecting to server...\n";
+    if (connect(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        std::cerr << RED << "[ ERR ] Connection failed! Is server running?\n" << RESET;
+        close(server_socket);
+        return -1;
+    }
+
     cout << CLEAR;
     //bg
     cout << YELLOW << START_SCREEN << RESET << "\n";
@@ -210,7 +222,7 @@ int main() {
         } else if (command == "help") {
             help();
         } else if (command == "reg") {
-            int64_t new_id = registration(db);
+            int64_t new_id = registration_ui(server_socket);
 
             if (new_id != -1) {
                 current_user_id = new_id;
@@ -224,31 +236,20 @@ int main() {
 
             cout << current_user_id << "\n";
         } else if (command == "del") {
-            if(delete_user(db, current_user_id)) {
+            if(del_user(server_socket, current_user_id)) {
                 current_user_id = -1;
             }
         } else if (command == "send") {
-            sendMsg(db, current_user_id);
+            sendMsg_ui(server_socket, current_user_id);
         } else if (command == "login") {
-            int64_t logged_in = loginUser(db, current_user_id);
+            int64_t logged_in = loginUser_ui(server_socket, current_user_id);
 
             if (logged_in != -1) {
                 current_user_id = logged_in;
             }
         } else if (command == "logout") {
-            if (logout_user(db, current_user_id)) {
+            if (logout_user(server_socket, current_user_id)) {
                 current_user_id = -1;
-            }
-        } else if (command == "inbox") {
-            auto msgs = readMsgs(db, current_user_id);
-
-            if (!msgs.empty()) {
-                cout << GREEN << "====================== INBOX ======================" << RESET << "\n";
-                for (const auto& m : msgs) {
-                    cout << "[" << m.timestamp << "] From User ID " << m.author_id
-                    << ": " << m.msg_text << "\n";
-                }
-                cout << GREEN << "===================================================" << RESET << "\n";
             }
         } else {
             cout << UNKNOWN_COMMAND << "\n";
@@ -261,6 +262,7 @@ int main() {
         cout << "\n";
     }
 
+    close(server_socket);
     cout << GREEN << "[ OK ] Exiting...\n" << RESET;
     return 0;
 }

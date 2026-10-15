@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <mutex>
 #include "message.hpp"
 #include <vector>
 
@@ -11,6 +12,7 @@ struct Message;
 class Database {
 private:
     sqlite3* db = nullptr;
+    std::mutex db_mutex;
 public:
     Database(const std::string& db_name);
     ~Database();

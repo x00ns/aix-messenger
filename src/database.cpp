@@ -10,6 +10,8 @@ uint64_t generateToken() {
     return (static_cast<uint64_t>(rd()) << 32) | rd();
 }
 
+std::string hashPassword(const std::string& passw);
+
 Database::Database(const std::string& db_name) {
     if (sqlite3_open(db_name.c_str(), &db) != SQLITE_OK) {
         std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
@@ -59,6 +61,8 @@ bool Database::initTables() {
 }
 // registration users
 int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
@@ -67,7 +71,9 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     }
 
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, passw.c_str(), -1, SQLITE_STATIC);
+
+    std::string hash_p = hashPassword(passw);
+    sqlite3_bind_text(stmt, 2, hash_p.c_str(), -1, SQLITE_STATIC);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -99,6 +105,8 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
 }
 // send message
 int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "INSERT INTO messages (recipient_id, author_id, msg_text) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
 
@@ -121,6 +129,8 @@ int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std:
 }
 
 bool Database::db_delUser(int64_t id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "DELETE FROM users WHERE id = ?;";
     sqlite3_stmt* stmt;
 
@@ -141,6 +151,8 @@ bool Database::db_delUser(int64_t id) {
 }
 
 int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
@@ -191,6 +203,8 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
 }
 // inbox
 std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "SELECT author_id, msg_text, id FROM messages WHERE recipient_id = ? AND readed = 0;";
     sqlite3_stmt* stmt;
     std::vector<Message> incoming_msgs;
@@ -232,6 +246,8 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
 }
 
 bool Database::db_logoutUser(int64_t id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
     sqlite3_stmt* stmt;
 
