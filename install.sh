@@ -5,7 +5,7 @@ set -e
 echo " <<< Installing a aix-messenger >>>"
 make clean && make
 
-BINARY="./aix"
+BINARY="./aix_client"
 
 if [ ! -f "$BINARY" ]; then
     echo "ERROR: Binary not found. Please recompile source code"
@@ -13,6 +13,7 @@ if [ ! -f "$BINARY" ]; then
 fi
 
 echo "<<< Installing binary package >>>"
+rm -rf aix_server
 mkdir -p "$HOME/.aix-messenger/"
 sudo cp "$BINARY" /usr/bin/aix
 sudo chmod +x /usr/bin/aix
