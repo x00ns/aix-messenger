@@ -12,6 +12,9 @@ I'm 15 years old, I'm from Russia, and I'm eager to become a developer (somehow,
 How to install my product on your PC:
 
 My product is designed ONLY for Linux (for Windows, you need to install WSL).
-Clone my repository with the command "git clone https://github.com/x00ns/aix-messenger.git", then navigate to the project folder, install SDK on your PC (depending on your distribution) and run the installer './install.sh'
+Clone my repository with the command "git clone https://github.com/x00ns/aix-messenger.git", then navigate to the project folder, install SDK on your PC (depending on your distribution) and run the installer './install.sh' (no rewritten)
 
 Please rate this project if you found it useful.
+
+# What's new
+New: multithread, client-server archihecture (I wrote bad) and smart session control (with token hash), but i NOT made 'inbox' and TLS
