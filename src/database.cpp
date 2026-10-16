@@ -11,7 +11,7 @@ uint64_t generateToken() {
 }
 
 std::string hashPassword(const std::string& passw);
-std::string hashToken(int64_t token);
+std::string hashToken(uint64_t token);
 
 Database::Database(const std::string& db_name) {
     if (sqlite3_open(db_name.c_str(), &db) != SQLITE_OK) {

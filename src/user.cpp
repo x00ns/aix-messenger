@@ -23,12 +23,11 @@ std::string hashPassword(const std::string& passw) {
 
     return std::string(hashed);
 }
-// hash session token
-std::string hashToken(int64_t token) {
-    std::string token_str = std::to_string(token);
+// hash token
+std::string hashToken(uint64_t token) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
 
-    SHA256(reinterpret_cast<const unsigned char*>(token_str.c_str()), token_str.size(), hash);
+    SHA256(reinterpret_cast<const unsigned char*>(&token), sizeof(token), hash);
 
     std::stringstream ss;
     for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
