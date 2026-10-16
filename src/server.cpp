@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 std::string read_string(int socket) {
     uint32_t length = 0;
@@ -21,6 +22,7 @@ void client(int client_socket, Database& db) {
     while (true) {
         // user is shotdown
         if (read(client_socket, &cmd, sizeof(cmd)) <= 0) {
+            close(client_socket);
             return;
         }
 
@@ -108,7 +110,7 @@ int main() {
     address.sin_port = htons(8080);
 
     if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        std::cerr << "[ ERR ] Bind failed on port 443\n";
+        std::cerr << "[ ERR ] Bind failed on port 8080\n";
         close(server_fd);
         return -1;
     }
@@ -128,10 +130,10 @@ int main() {
         if (client_socket < 0) {
             continue;
         }
+        // multithread
+        std::thread worker(client, client_socket, std::ref(db));
 
-        client(client_socket, db);
-        // close server
-        close(client_socket);
+        worker.detach();
     }
 
     close(server_fd);

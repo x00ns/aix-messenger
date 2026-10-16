@@ -1,7 +1,10 @@
 #include "../includes/user.hpp"
 #include "../includes/database.hpp"
+#include <openssl/sha.h>
 #include <crypt.h>
 #include <iostream>
+#include <string>
+#include <iomanip>
 // hash password
 std::string hashPassword(const std::string& passw) {
     char salt[CRYPT_GENSALT_OUTPUT_SIZE];
@@ -19,6 +22,20 @@ std::string hashPassword(const std::string& passw) {
     }
 
     return std::string(hashed);
+}
+// hash session token
+std::string hashToken(int64_t token) {
+    std::string token_str = std::to_string(token);
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+
+    SHA256(reinterpret_cast<const unsigned char*>(token_str.c_str()), token_str.size(), hash);
+
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    }
+
+    return ss.str();
 }
 // reg user
 int64_t reg_user(Database& db, const std::string& name, const std::string& passw) {

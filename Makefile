@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
-LDFLAGS = -lsqlite3 -lcrypt
+LDFLAGS = -lsqlite3 -lcrypt -lcrypto -lssl -lpthread
 
 TARGET = aix
 
@@ -31,4 +31,4 @@ client.o: src/client.cpp includes/protocol.hpp
 	$(CXX) $(CXXFLAGS) -c src/client.cpp
 
 clean:
-	rm -f *.o aix.db all
+	rm -f *.o aix.db aix_server aix_client

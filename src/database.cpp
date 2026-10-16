@@ -11,12 +11,15 @@ uint64_t generateToken() {
 }
 
 std::string hashPassword(const std::string& passw);
+std::string hashToken(int64_t token);
 
 Database::Database(const std::string& db_name) {
     if (sqlite3_open(db_name.c_str(), &db) != SQLITE_OK) {
         std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
     } else {
         sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+        // timeout
+        sqlite3_busy_timeout(db, 5000);
     }
 }
 
@@ -30,7 +33,7 @@ bool Database::initTables() {
         "CREATE TABLE IF NOT EXISTS users ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
         "name TEXT UNIQUE NOT NULL, "
-        "session_token INTEGER DEFAULT 0, "
+        "session_token TEXT DEFAULT NULL, "
         "passw TEXT);";
     // create messages
     const char* createMsgs =
@@ -91,7 +94,8 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
         return -1;
     }
 
-    sqlite3_bind_int64(stmt, 1, token);
+    std::string hash_t = hashToken(token);
+    sqlite3_bind_text(stmt, 1, hash_t.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int64(stmt, 2, user_id);
 
     rc = sqlite3_step(stmt);
@@ -188,7 +192,8 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
             return -1;
         }
 
-        sqlite3_bind_int64(stmt, 1, token);
+        std::string hash_t = hashToken(token);
+        sqlite3_bind_text(stmt, 1, hash_t.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(stmt, 2, user_id);
 
         rc = sqlite3_step(stmt);

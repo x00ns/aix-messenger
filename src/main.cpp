@@ -6,9 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "../includes/message.hpp"
 #include "../includes/user.hpp"
-#include "..//includes/protocol.hpp"
 using std::cout;
 using std::string_view;
 // commands
@@ -155,7 +153,7 @@ int64_t loginUser_ui(int server_socket, int64_t current_user_id) {
         return -1;
     }
     if (name.empty()) {
-        cout << RED << "[ ERR ] Email is empty!\n" << RESET;
+        cout << RED << "[ ERR ] Name is empty!\n" << RESET;
         return -1;
     }
     // input password
@@ -236,6 +234,12 @@ int main() {
 
             cout << current_user_id << "\n";
         } else if (command == "del") {
+            if (current_user_id == -1) {
+                cout << RED << "[ ERR ] No user for delete\n" << RESET;
+                cout << STR << std::flush;
+                continue;
+            }
+
             if(del_user(server_socket, current_user_id)) {
                 current_user_id = -1;
             }
