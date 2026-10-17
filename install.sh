@@ -15,5 +15,5 @@ fi
 echo "<<< Installing binary package >>>"
 rm -rf aix_server
 mkdir -p "$HOME/.aix-messenger/"
-sudo cp "$BINARY" /usr/bin/aix
-sudo chmod +x /usr/bin/aix
+sudo cp "$BINARY" /usr/local/bin/aix
+sudo chmod +x /usr/local/bin/aix
