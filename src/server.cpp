@@ -16,6 +16,12 @@ std::string read_string(int socket) {
     return std::string(buffer.data());
 }
 
+void send_string(int socket, const std::string& str) {
+    uint32_t length = str.size();
+    write(socket, &length, sizeof(length));
+    write(socket, str.c_str(), length);
+}
+
 void client(int client_socket, Database& db) {
     CommandType cmd;
     // network part
@@ -72,6 +78,26 @@ void client(int client_socket, Database& db) {
                 write(client_socket, &success, sizeof(success));
                 break;
             }
+            // inbox
+            case CommandType::INBOX: {
+                int64_t user_id = -1;
+                if (read(client_socket, &user_id, sizeof(user_id)) <= 0) {
+                    close(client_socket);
+                    return;
+                }
+
+                std::vector<Message> msgs = db.db_readMsgs(user_id);
+                uint32_t msgs_count = msgs.size();
+                write(client_socket, &msgs_count, sizeof(msgs_count));
+
+                for (const auto& msg : msgs) {
+                    write(client_socket, &msg.author_id, sizeof(msg.author_id));
+                    write(client_socket, &msg.msg_id, sizeof(msg.msg_id));
+                    send_string(client_socket, msg.msg_text);
+                }
+
+                break;
+            }
 
             default:
                 std::cerr << "Unknown command";
@@ -121,7 +147,7 @@ int main() {
         return -1;
     }
 
-    std::cout << "Aix server is srtarted...\n";
+    std::cout << "Aix server is started...\n";
 
     while (true) {
         std::cout << "Waiting a people...\n";

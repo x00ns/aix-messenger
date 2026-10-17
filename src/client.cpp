@@ -1,4 +1,6 @@
 #include "..//includes/protocol.hpp"
+#include "..//includes/message.hpp"
+#include <cstdint>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <vector>
@@ -16,6 +18,35 @@ std::string read_string(int socket) {
     std::vector<char> buffer(length + 1, 0);
     if (read(socket, buffer.data(), length) <= 0) return "";
     return std::string(buffer.data());
+}
+// inbox
+std::vector<Message> inbox(int server_socket, int64_t current_user_id) {
+    std::vector<Message> incoming_msgs;
+    if (current_user_id == -1) return std::vector<Message>();
+    // write command
+    CommandType cmd = CommandType::INBOX;
+    write(server_socket, &cmd, sizeof(cmd));
+
+    write(server_socket, &current_user_id, sizeof(current_user_id));
+
+    uint32_t msg_count = 0;
+    if (read(server_socket, &msg_count, sizeof(msg_count)) <= 0) {
+        return std::vector<Message>();
+    }
+
+    for (uint32_t i = 0; i < msg_count; i++) {
+        int64_t author_id = -1;
+        int64_t msg_id = -1;
+
+        if (read(server_socket, &author_id, sizeof(author_id)) <= 0) break;
+        if (read(server_socket, &msg_id, sizeof(msg_id)) <= 0) break;
+
+        std::string msg_text = read_string(server_socket);
+
+        incoming_msgs.emplace_back(current_user_id, author_id, msg_text, msg_id);
+    }
+
+    return incoming_msgs;
 }
 // send msgs
 int64_t send_msg(int server_socket, int64_t author_id, int64_t recip_id, const std::string& msg_text) {

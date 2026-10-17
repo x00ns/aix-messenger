@@ -7,7 +7,8 @@ enum class CommandType : uint8_t {
     MSG = 3,
     GET_INBOX = 4,
     LOGOUT = 5,
-    DEL = 6
+    DEL = 6,
+    INBOX = 7
 };
 
 struct Network {

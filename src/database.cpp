@@ -18,6 +18,8 @@ Database::Database(const std::string& db_name) {
         std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
     } else {
         sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+        // WAL mode
+        sqlite3_exec(db, "PRAGMA journal_mode=WAL", nullptr, nullptr, nullptr);
         // timeout
         sqlite3_busy_timeout(db, 5000);
     }
@@ -35,12 +37,25 @@ bool Database::initTables() {
         "name TEXT UNIQUE NOT NULL, "
         "session_token TEXT DEFAULT NULL, "
         "passw TEXT);";
+    // create rooms
+    const char* createRooms =
+        "CREATE TABLE IF NOT EXISTS rooms ("
+        "room_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
+        "room_name TEXT NOT NULL);";
+    // create room members table
+    const char* createRoomMembers =
+        "CREATE TABLE IF NOT EXISTS room_members ("
+        "room_id INTEGER NOT NULL, "
+        "user_id INTEGER NOT NULL, "
+        "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, "
+        "FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);";
     // create messages
     const char* createMsgs =
         "CREATE TABLE IF NOT EXISTS messages ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "recipient_id INTEGER NOT NULL, "
+        "recipient_id INTEGER DEFAULT NULL, "
         "author_id INTEGER NOT NULL, "
+        "room_id INTEGER DEFAULT NULL, "
         "msg_text TEXT NOT NULL, "
         "readed INTEGER DEFAULT 0, "
         "FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE CASCADE, "
@@ -64,8 +79,6 @@ bool Database::initTables() {
 }
 // registration users
 int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
@@ -109,8 +122,6 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
 }
 // send message
 int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "INSERT INTO messages (recipient_id, author_id, msg_text) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
 
@@ -133,8 +144,6 @@ int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std:
 }
 
 bool Database::db_delUser(int64_t id) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "DELETE FROM users WHERE id = ?;";
     sqlite3_stmt* stmt;
 
@@ -155,8 +164,6 @@ bool Database::db_delUser(int64_t id) {
 }
 
 int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
@@ -208,8 +215,6 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
 }
 // inbox
 std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "SELECT author_id, msg_text, id FROM messages WHERE recipient_id = ? AND readed = 0;";
     sqlite3_stmt* stmt;
     std::vector<Message> incoming_msgs;
@@ -251,8 +256,6 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
 }
 
 bool Database::db_logoutUser(int64_t id) {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
     sqlite3_stmt* stmt;
 

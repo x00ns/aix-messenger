@@ -13,6 +13,7 @@ using std::string_view;
 int64_t reg_user(int server_socket, const std::string& name, const std::string& passw);
 int64_t login_user(int server_socket, const std::string& name, const std::string& passw);
 int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, const std::string& msg_text);
+std::vector<Message> inbox(int server_socket, int64_t current_user_id);
 bool logout_user(int server_socket, int64_t& current_user_id);
 bool del_user(int server_socket, int64_t& current_user_id);
 // strings
@@ -254,6 +255,21 @@ int main() {
         } else if (command == "logout") {
             if (logout_user(server_socket, current_user_id)) {
                 current_user_id = -1;
+            }
+        } else if (command == "inbox") {
+            std::vector<Message> msgs = inbox(server_socket, current_user_id);
+
+            if (msgs.empty()) {
+                cout << YELLOW << "No new messages.\n" << RESET;
+            } else {
+                cout << GREEN << "<----> New messages: (" << msgs.size() << ") <---->\n" << RESET;
+                cout << "========================================\n";
+
+                for (auto& msg : msgs) {
+                    cout << "FROM: [ " << msg.author_id << " ] | " << msg.msg_text << "\n";
+                }
+
+                cout << "========================================\n";
             }
         } else {
             cout << UNKNOWN_COMMAND << "\n";
