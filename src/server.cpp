@@ -11,6 +11,11 @@
 std::string read_string(int socket) {
     uint32_t length = 0;
     if (read(socket, &length, sizeof(length)) <= 0) return "";
+
+    if (length > 512) {
+        return "";
+    }
+
     std::vector<char> buffer(length + 1, 0);
     if (read(socket, buffer.data(), length) <= 0) return "";
     return std::string(buffer.data());
@@ -36,6 +41,11 @@ void client(int client_socket, Database& db) {
             // reg user
             case CommandType::REG: {
                 std::string name = read_string(client_socket), passw = read_string(client_socket);
+                // if name or password empty
+                if (name.empty() || passw.empty()) {
+                    close(client_socket);
+                    return;
+                }
                 // send user id
                 int64_t user_id = db.db_regUser(name, passw);
                 write(client_socket, &user_id, sizeof(user_id));
@@ -141,7 +151,7 @@ int main() {
         return -1;
     }
 
-    if (listen(server_fd, 10) < 0) {
+    if (listen(server_fd, 128) < 0) {
         std::cerr << "[ ERR ] Listen failed\n";
         close(server_fd);
         return -1;

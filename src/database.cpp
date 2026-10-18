@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdint>
 #include <crypt.h>
+#include <mutex>
 #include <sqlite3.h>
 #include <random>
 
@@ -48,7 +49,7 @@ bool Database::initTables() {
         "room_id INTEGER NOT NULL, "
         "user_id INTEGER NOT NULL, "
         "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, "
-        "FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);";
+        "FOREIGN KEY(room_id) REFERENCES rooms(room_id) ON DELETE CASCADE);";
     // create messages
     const char* createMsgs =
         "CREATE TABLE IF NOT EXISTS messages ("
@@ -74,11 +75,23 @@ bool Database::initTables() {
         sqlite3_free(errMsg);
         return false;
     }
+    // rooms
+    if (sqlite3_exec(db, createRooms, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+        sqlite3_free(errMsg);
+        return false;
+    }
+    // users in rooms
+    if (sqlite3_exec(db, createRoomMembers, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+        sqlite3_free(errMsg);
+        return false;
+    }
 
     return true;
 }
 // registration users
 int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
@@ -122,6 +135,8 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
 }
 // send message
 int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "INSERT INTO messages (recipient_id, author_id, msg_text) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
 
@@ -144,6 +159,8 @@ int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std:
 }
 
 bool Database::db_delUser(int64_t id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "DELETE FROM users WHERE id = ?;";
     sqlite3_stmt* stmt;
 
@@ -164,6 +181,8 @@ bool Database::db_delUser(int64_t id) {
 }
 
 int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
@@ -215,6 +234,8 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
 }
 // inbox
 std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "SELECT author_id, msg_text, id FROM messages WHERE recipient_id = ? AND readed = 0;";
     sqlite3_stmt* stmt;
     std::vector<Message> incoming_msgs;
@@ -256,6 +277,8 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
 }
 
 bool Database::db_logoutUser(int64_t id) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+
     const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
     sqlite3_stmt* stmt;
 
