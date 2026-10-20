@@ -11,11 +11,11 @@ struct Message;
 // database
 class Database {
 private:
-    sqlite3* db = nullptr;
+    std::string db_path;
     std::mutex db_mutex;
 public:
-    Database(const std::string& db_name);
-    ~Database();
+    Database(const std::string& db_name) : db_path(db_name) {}
+    ~Database() = default;
     // create tables
     bool initTables();
     //work with users & messages

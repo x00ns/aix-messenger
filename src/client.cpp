@@ -16,10 +16,6 @@ std::string read_string(int socket) {
     uint32_t length = 0;
     if (read(socket, &length, sizeof(length)) <= 0) return "";
 
-    if (length > 512) {
-        return "";
-    }
-
     std::vector<char> buffer(length + 1, 0);
     if (read(socket, buffer.data(), length) <= 0) return "";
     return std::string(buffer.data());
@@ -58,8 +54,8 @@ int64_t send_msg(int server_socket, int64_t author_id, int64_t recip_id, const s
     CommandType cmd = CommandType::MSG;
     write(server_socket, &cmd, sizeof(cmd));
     // write dannie
-    write(server_socket, &author_id, sizeof(author_id));
     write(server_socket, &recip_id, sizeof(recip_id));
+    write(server_socket, &author_id, sizeof(author_id));
     send_string(server_socket, msg_text);
     // read msg_id
     int64_t msg_id = -1;

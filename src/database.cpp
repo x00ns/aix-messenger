@@ -2,9 +2,9 @@
 #include <iostream>
 #include <cstdint>
 #include <crypt.h>
-#include <mutex>
 #include <sqlite3.h>
 #include <random>
+#include <mutex>
 
 uint64_t generateToken() {
     std::random_device rd;
@@ -13,24 +13,19 @@ uint64_t generateToken() {
 
 std::string hashPassword(const std::string& passw);
 std::string hashToken(uint64_t token);
-
-Database::Database(const std::string& db_name) {
-    if (sqlite3_open(db_name.c_str(), &db) != SQLITE_OK) {
-        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
-    } else {
-        sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
-        // WAL mode
-        sqlite3_exec(db, "PRAGMA journal_mode=WAL", nullptr, nullptr, nullptr);
-        // timeout
-        sqlite3_busy_timeout(db, 5000);
-    }
-}
-
-Database::~Database() {
-    if (db) sqlite3_close(db);
-}
-
+// init tables
 bool Database::initTables() {
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return false;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // WAL mode
+    sqlite3_exec(db, "PRAGMA journal_mode=WAL", nullptr, nullptr, nullptr);
     // create users
     const char* createUsers =
         "CREATE TABLE IF NOT EXISTS users ("
@@ -61,11 +56,12 @@ bool Database::initTables() {
         "readed INTEGER DEFAULT 0, "
         "FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE CASCADE, "
         "FOREIGN KEY(recipient_id) REFERENCES users(id) ON DELETE CASCADE);";
-    // error messahe
+    // error message
     char* errMsg = nullptr;
      // users
     if (sqlite3_exec(db, createUsers, nullptr, nullptr, &errMsg) != SQLITE_OK) {
         sqlite3_free(errMsg);
+        sqlite3_close(db);
         return false;
     }
 
@@ -73,29 +69,45 @@ bool Database::initTables() {
     // messages
     if (sqlite3_exec(db, createMsgs, nullptr, nullptr, &errMsg) != SQLITE_OK) {
         sqlite3_free(errMsg);
+        sqlite3_close(db);
         return false;
     }
     // rooms
     if (sqlite3_exec(db, createRooms, nullptr, nullptr, &errMsg) != SQLITE_OK) {
         sqlite3_free(errMsg);
+        sqlite3_close(db);
         return false;
     }
     // users in rooms
     if (sqlite3_exec(db, createRoomMembers, nullptr, nullptr, &errMsg) != SQLITE_OK) {
         sqlite3_free(errMsg);
+        sqlite3_close(db);
         return false;
     }
 
+    sqlite3_close(db);
     return true;
 }
 // registration users
 int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return -1;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "INSERT INTO users (name, passw) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return -1;
     }
 
@@ -108,6 +120,7 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     sqlite3_finalize(stmt);
 
     if (rc != SQLITE_DONE) {
+        sqlite3_close(db);
         return -1;
     }
     // save user id
@@ -117,6 +130,7 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
 
     if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return -1;
     }
 
@@ -128,19 +142,33 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE) {
+        sqlite3_close(db);
         return user_id;
     }
 
+    sqlite3_close(db);
     return -1;
 }
 // send message
 int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return -1;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "INSERT INTO messages (recipient_id, author_id, msg_text) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return -1;
     }
 
@@ -151,20 +179,35 @@ int64_t Database::db_sendMsg(int64_t recipient_id, int64_t author_id, const std:
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
+    int64_t msg_id = -1;
+
     if (rc == SQLITE_DONE) {
-        return sqlite3_last_insert_rowid(db);
+        msg_id = sqlite3_last_insert_rowid(db);
     }
 
-    return -1;
+    sqlite3_close(db);
+    return msg_id;
 }
 
 bool Database::db_delUser(int64_t id) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return false;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "DELETE FROM users WHERE id = ?;";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return false;
     }
 
@@ -174,19 +217,33 @@ bool Database::db_delUser(int64_t id) {
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
+        sqlite3_close(db);
         return true;
     }
 
+    sqlite3_close(db);
     return false;
 }
 
 int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return -1;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "SELECT id, passw FROM users WHERE name = ?;";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return -1;
     }
     // bind email
@@ -215,6 +272,7 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
         const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
 
         if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
+            sqlite3_close(db);
             return -1;
         }
 
@@ -226,15 +284,28 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
         sqlite3_finalize(stmt);
 
         if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
+            sqlite3_close(db);
             return user_id;
         }
     }
 
+    sqlite3_close(db);
     return -1;
 }
 // inbox
 std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return std::vector<Message>();
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "SELECT author_id, msg_text, id FROM messages WHERE recipient_id = ? AND readed = 0;";
     sqlite3_stmt* stmt;
@@ -242,6 +313,7 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         std::cerr << "[ ERR ] Prepare failed: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
         return incoming_msgs;
     }
 
@@ -265,6 +337,7 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
 
         if (sqlite3_prepare_v2(db, update_sql, -1, &update_stmt, nullptr) != SQLITE_OK) {
             std::cerr << "[ ERR ] Auto-update readed prepare failed: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_close(db);
             return incoming_msgs;
         }
 
@@ -273,16 +346,29 @@ std::vector<Message> Database::db_readMsgs(int64_t recipient_id) {
         sqlite3_finalize(update_stmt);
     }
 
+    sqlite3_close(db);
     return incoming_msgs;
 }
 
 bool Database::db_logoutUser(int64_t id) {
     std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    // open bd
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[ ERR ] Cannot open DB: " << sqlite3_errmsg(db) << std::endl;
+        if (db) sqlite3_close(db);
+        return false;
+    }
+    // keys
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    // timeout
+    sqlite3_busy_timeout(db, 5000);
 
     const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
         return false;
     }
 
@@ -292,8 +378,10 @@ bool Database::db_logoutUser(int64_t id) {
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE && sqlite3_changes(db) > 0) {
+        sqlite3_close(db);
         return true;
     }
 
+    sqlite3_close(db);
     return false;
 }
