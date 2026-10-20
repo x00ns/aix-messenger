@@ -50,12 +50,12 @@ std::vector<Message> inbox(int server_socket, int64_t current_user_id) {
     return incoming_msgs;
 }
 // send msgs
-int64_t send_msg(int server_socket, int64_t author_id, int64_t recip_id, const std::string& msg_text) {
+int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, const std::string& msg_text) {
     CommandType cmd = CommandType::MSG;
     write(server_socket, &cmd, sizeof(cmd));
     // write dannie
-    write(server_socket, &author_id, sizeof(author_id));
     write(server_socket, &recip_id, sizeof(recip_id));
+    write(server_socket, &author_id, sizeof(author_id));
     send_string(server_socket, msg_text);
     // read msg_id
     int64_t msg_id = -1;
