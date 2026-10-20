@@ -54,8 +54,8 @@ int64_t send_msg(int server_socket, int64_t author_id, int64_t recip_id, const s
     CommandType cmd = CommandType::MSG;
     write(server_socket, &cmd, sizeof(cmd));
     // write dannie
-    write(server_socket, &recip_id, sizeof(recip_id));
     write(server_socket, &author_id, sizeof(author_id));
+    write(server_socket, &recip_id, sizeof(recip_id));
     send_string(server_socket, msg_text);
     // read msg_id
     int64_t msg_id = -1;
