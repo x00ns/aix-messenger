@@ -225,6 +225,7 @@ int main() {
 
             if (new_id != -1) {
                 current_user_id = new_id;
+                cout << GREEN << "[ OK ] Registration successful! Your ID: " << current_user_id << "\n" << RESET;
             }
         } else if (command == "id") {
             if (current_user_id == -1) {
@@ -243,6 +244,7 @@ int main() {
 
             if(del_user(server_socket, current_user_id)) {
                 current_user_id = -1;
+                cout << GREEN << "[ OK ] User deleted!\n" << RESET;
             }
         } else if (command == "send") {
             sendMsg_ui(server_socket, current_user_id);
@@ -251,10 +253,12 @@ int main() {
 
             if (logged_in != -1) {
                 current_user_id = logged_in;
+                cout << GREEN << "[ OK ] Successfuly logged in!\n" << RESET;
             }
         } else if (command == "logout") {
             if (logout_user(server_socket, current_user_id)) {
                 current_user_id = -1;
+                cout << GREEN << "[ OK ] Successfuly logged out!\n" << RESET;
             }
         } else if (command == "inbox") {
             std::vector<Message> msgs = inbox(server_socket, current_user_id);
