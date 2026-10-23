@@ -12,5 +12,4 @@ if [ ! -f "$BINARY" ]; then
 fi
 
 echo "<<< Uninstalling binary package >>>"
-rm -rf aix_server
 sudo rm -f /usr/local/bin/aix
