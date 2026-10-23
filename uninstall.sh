@@ -4,7 +4,7 @@ set -e
 
 # make clean
 
-BINARY="./aix_client"
+BINARY="/usr/local/bin/aix"
 
 if [ ! -f "$BINARY" ]; then
     echo "ERROR: Binary not found."
