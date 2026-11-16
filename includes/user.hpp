@@ -28,9 +28,9 @@ public:
     void setId(int64_t new_id) { id = new_id; }
 };
 // reg user
-int64_t reg_user(Database& db, const std::string& name, const std::string& passw);
+int64_t reg_user(Database& db, const std::string& name, const std::string& passw, uint64_t& token);
 // login user
-int64_t login_user(Database& db, const std::string& name, const std::string& passw);
+int64_t login_user(Database& db, const std::string& name, const std::string& passw, uint64_t& token);
 // delete user
 bool delete_user(Database& db, int64_t& current_user_id);
 // logout user

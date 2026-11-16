@@ -37,7 +37,7 @@ std::string hashToken(uint64_t token) {
     return ss.str();
 }
 // reg user
-int64_t reg_user(Database& db, const std::string& name, const std::string& passw) {
+int64_t reg_user(Database& db, const std::string& name, const std::string& passw, uint64_t& token) {
     if (name.empty()) {
         std::cout << RED << "[ ERR ] Name and email cannot be empty!\n" << RESET;
         return -1;
@@ -45,7 +45,7 @@ int64_t reg_user(Database& db, const std::string& name, const std::string& passw
     
     std::string new_hash = hashPassword(passw);
 
-    int next_id = db.db_regUser(name, new_hash);
+    int next_id = db.db_regUser(name, new_hash, token);
 
     if (next_id == -1) {
         std::cout << RED << "[ ERR ] User is exists\n" << RESET;
@@ -73,13 +73,13 @@ bool delete_user(Database& db, int64_t& current_user_id) {
     }
 }
 // login
-int64_t login_user(Database& db, const std::string& name, const std::string& passw) {
+int64_t login_user(Database& db, const std::string& name, const std::string& passw, uint64_t& token) {
     if (name.empty() || passw.empty()) {
         std::cout << RED << "[ ERR ] Name or password field is EMPTY!\n" << RESET;
         return -1;
     }
 
-    int64_t user_id = db.db_loginUser(name, passw);
+    int64_t user_id = db.db_loginUser(name, passw, token);
 
     if (user_id == -1) {
         std::cout << RED << "[ ERR ] User not found!\n" << RESET;

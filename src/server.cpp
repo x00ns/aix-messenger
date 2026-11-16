@@ -1,5 +1,6 @@
 #include "..//includes/protocol.hpp"
 #include "..//includes/database.hpp"
+#include <cstdint>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <signal.h>
@@ -43,57 +44,86 @@ void client(int client_socket, Database& db) {
                     close(client_socket);
                     return;
                 }
-                // send user id
-                int64_t user_id = db.db_regUser(name, passw);
+                // send user id and session token
+                uint64_t token = 0;
+                int64_t user_id = db.db_regUser(name, passw, token);
                 write(client_socket, &user_id, sizeof(user_id));
+                write(client_socket, &token, sizeof(token));
                 break;
             }
             // login user
             case CommandType::LOGIN: {
                 std::string name = read_string(client_socket), passw = read_string(client_socket);
-                // send user id
-                int64_t user_id = db.db_loginUser(name, passw);
+                // send user id and session token
+                uint64_t token = 0;
+                int64_t user_id = db.db_loginUser(name, passw, token);
                 write(client_socket, &user_id, sizeof(user_id));
+                write(client_socket, &token, sizeof(token));
                 break;
             }
             // send msg
             case CommandType::MSG: {
                 int64_t author_id = -1, recipient_id = -1;
+                uint64_t token = 0;
                 read(client_socket, &recipient_id, sizeof(recipient_id));
                 read(client_socket, &author_id, sizeof(author_id));
+                read(client_socket, &token, sizeof(token));
                 std::string msg_text = read_string(client_socket);
                 // write a sended msgs
-                int64_t msg_id = db.db_sendMsg(recipient_id, author_id, msg_text);
+                int64_t msg_id = -1;
+                if (db.db_verifyToken(author_id, token)) {
+                   msg_id = db.db_sendMsg(recipient_id, author_id, msg_text);
+                }
+
                 write(client_socket, &msg_id, sizeof(msg_id));
                 break;
             }
             // logout user
             case CommandType::LOGOUT: {
                 int64_t user_id = -1;
+                uint64_t token = 0;
                 read(client_socket, &user_id, sizeof(user_id));
+                read(client_socket, &token, sizeof(token));
 
-                bool success = db.db_logoutUser(user_id);
+                bool success = false;
+
+                if (db.db_verifyToken(user_id, token)) {
+                    success = db.db_logoutUser(user_id);
+                }
+
                 write(client_socket, &success, sizeof(success));
                 break;
             }
             // delete user
             case CommandType::DEL: {
                 int64_t user_id = -1;
+                uint64_t token = 0;
                 read(client_socket, &user_id, sizeof(user_id));
+                read(client_socket, &token, sizeof(token));
 
-                bool success = db.db_delUser(user_id);
+                bool success = false;
+
+                if (db.db_verifyToken(user_id, token)) {
+                    success = db.db_delUser(user_id);
+                }
+
                 write(client_socket, &success, sizeof(success));
                 break;
             }
             // inbox
             case CommandType::INBOX: {
                 int64_t user_id = -1;
-                if (read(client_socket, &user_id, sizeof(user_id)) <= 0) {
+                uint64_t token = 0;
+                if (read(client_socket, &user_id, sizeof(user_id)) <= 0 || read(client_socket, &token, sizeof(token)) <= 0) {
                     close(client_socket);
                     return;
                 }
 
-                std::vector<Message> msgs = db.db_readMsgs(user_id);
+                std::vector<Message> msgs;
+                if (db.db_verifyToken(user_id, token)) {
+                    msgs = db.db_readMsgs(user_id);
+                }
+
                 uint32_t msgs_count = msgs.size();
                 write(client_socket, &msgs_count, sizeof(msgs_count));
 

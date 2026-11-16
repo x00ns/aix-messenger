@@ -21,7 +21,7 @@ std::string read_string(int socket) {
     return std::string(buffer.data());
 }
 // inbox
-std::vector<Message> inbox(int server_socket, int64_t current_user_id) {
+std::vector<Message> inbox(int server_socket, int64_t current_user_id, uint64_t token) {
     std::vector<Message> incoming_msgs;
     if (current_user_id == -1) return std::vector<Message>();
     // write command
@@ -29,6 +29,7 @@ std::vector<Message> inbox(int server_socket, int64_t current_user_id) {
     write(server_socket, &cmd, sizeof(cmd));
 
     write(server_socket, &current_user_id, sizeof(current_user_id));
+    write(server_socket, &token, sizeof(token));
 
     uint32_t msg_count = 0;
     if (read(server_socket, &msg_count, sizeof(msg_count)) <= 0) {
@@ -50,12 +51,13 @@ std::vector<Message> inbox(int server_socket, int64_t current_user_id) {
     return incoming_msgs;
 }
 // send msgs
-int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, const std::string& msg_text) {
+int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, uint64_t token, const std::string& msg_text) {
     CommandType cmd = CommandType::MSG;
     write(server_socket, &cmd, sizeof(cmd));
     // write dannie
     write(server_socket, &recip_id, sizeof(recip_id));
     write(server_socket, &author_id, sizeof(author_id));
+    write(server_socket, &token, sizeof(token));
     send_string(server_socket, msg_text);
     // read msg_id
     int64_t msg_id = -1;
@@ -66,7 +68,7 @@ int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, const s
     return msg_id;
 }
 // reg users
-int64_t reg_user(int server_socket, const std::string& name, const std::string& passw) {
+int64_t reg_user(int server_socket, const std::string& name, const std::string& passw, uint64_t& token) {
     CommandType cmd = CommandType::REG;
     write(server_socket, &cmd, sizeof(cmd));
     // write name & passw
@@ -78,10 +80,14 @@ int64_t reg_user(int server_socket, const std::string& name, const std::string& 
         return -1;
     }
 
+    if (user_id != -1) {
+        read(server_socket, &token, sizeof(token));
+    }
+
     return user_id;
 }
 // login users
-int64_t login_user(int server_socket, const std::string& name, const std::string& passw) {
+int64_t login_user(int server_socket, const std::string& name, const std::string& passw, uint64_t& token) {
     CommandType cmd = CommandType::LOGIN;
     write(server_socket, &cmd, sizeof(cmd));
     // write name & passw
@@ -93,15 +99,21 @@ int64_t login_user(int server_socket, const std::string& name, const std::string
         return -1;
     }
 
+    if (user_id != -1) {
+        read(server_socket, &token, sizeof(token));
+    }
+
     return user_id;
 }
 // logout user
-bool logout_user(int server_socket, int64_t& current_user_id) {
+bool logout_user(int server_socket, int64_t& current_user_id, uint64_t& token) {
+    if (current_user_id == -1 || token == 0) return false;
     if (current_user_id == -1) return false;
     CommandType cmd = CommandType::LOGOUT;
     // write dannie
     write(server_socket, &cmd, sizeof(cmd));
     write(server_socket, &current_user_id, sizeof(current_user_id));
+    write(server_socket, &token, sizeof(token));
 
     bool success = false;
     if (read(server_socket, &success, sizeof(success)) <= 0) {
@@ -110,18 +122,20 @@ bool logout_user(int server_socket, int64_t& current_user_id) {
 
     if (success) {
         current_user_id = -1;
+        token = 0;
     }
 
     return success;
 }
 
 // del user
-bool del_user(int server_socket, int64_t& current_user_id) {
+bool del_user(int server_socket, int64_t& current_user_id, uint64_t& token) {
     if (current_user_id == -1) return false;
     CommandType cmd = CommandType::DEL;
     // write dannie
     write(server_socket, &cmd, sizeof(cmd));
     write(server_socket, &current_user_id, sizeof(current_user_id));
+    write(server_socket, &token, sizeof(token));
 
     bool success = false;
     if (read(server_socket, &success, sizeof(success)) <= 0) {
@@ -130,6 +144,7 @@ bool del_user(int server_socket, int64_t& current_user_id) {
 
     if (success) {
         current_user_id = -1;
+        token = 0;
     }
 
     return success;

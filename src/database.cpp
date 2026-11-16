@@ -88,8 +88,42 @@ bool Database::initTables() {
     sqlite3_close(db);
     return true;
 }
+// verify token
+bool Database::db_verifyToken(int64_t user_id, uint64_t token) {
+    if (user_id <= 0 || token == 0) return false;
+    std::string expected_hash = hashToken(token);
+
+    std::lock_guard<std::mutex> lock(db_mutex);
+    sqlite3* db = nullptr;
+    if (sqlite3_open(db_path.c_str(), &db) != SQLITE_OK) {
+        if (db) sqlite3_close(db);
+        return false;
+    }
+    sqlite3_busy_timeout(db, 5000);
+
+    const char* sql = "SELECT session_token FROM users WHERE id = ?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
+        return false;
+    }
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    bool valid = false;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char* db_token = sqlite3_column_text(stmt, 0);
+        if (db_token && expected_hash == reinterpret_cast<const char*>(db_token)) {
+            valid = true;
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    return valid;
+}
 // registration users
-int64_t Database::db_regUser(const std::string& name, const std::string& passw) {
+int64_t Database::db_regUser(const std::string& name, const std::string& passw, uint64_t& session_token) {
     std::lock_guard<std::mutex> lock(db_mutex);
     sqlite3* db = nullptr;
     // open bd
@@ -127,6 +161,7 @@ int64_t Database::db_regUser(const std::string& name, const std::string& passw) 
     int64_t user_id = sqlite3_last_insert_rowid(db);
    // apply session token
     uint64_t token = generateToken();
+    session_token = token;
     const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
 
     if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -225,7 +260,7 @@ bool Database::db_delUser(int64_t id) {
     return false;
 }
 
-int64_t Database::db_loginUser(const std::string& name, const std::string& passw) {
+int64_t Database::db_loginUser(const std::string& name, const std::string& passw, uint64_t& session_token) {
     std::lock_guard<std::mutex> lock(db_mutex);
     sqlite3* db = nullptr;
     // open bd
@@ -269,6 +304,7 @@ int64_t Database::db_loginUser(const std::string& name, const std::string& passw
 
     if (success && user_id != -1) {
         uint64_t token = generateToken();
+        session_token = token;
         const char* sql2 = "UPDATE users SET session_token = ? WHERE id = ?;";
 
         if (sqlite3_prepare_v2(db, sql2, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -364,7 +400,7 @@ bool Database::db_logoutUser(int64_t id) {
     // timeout
     sqlite3_busy_timeout(db, 5000);
 
-    const char* sql = "UPDATE users SET session_token = 0 WHERE id = ?";
+    const char* sql = "UPDATE users SET session_token = NULL WHERE id = ?";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {

@@ -19,10 +19,11 @@ public:
     // create tables
     bool initTables();
     //work with users & messages
-    int64_t db_regUser(const std::string& name, const std::string& passw);
-    int64_t db_loginUser(const std::string& email, const std::string& passw);
+    int64_t db_regUser(const std::string& name, const std::string& passw, uint64_t& session_token);
+    int64_t db_loginUser(const std::string& email, const std::string& passw, uint64_t& session_token);
     bool db_delUser(int64_t id);
     int64_t db_sendMsg(int64_t recipient_id, int64_t author_id, const std::string& msg_text);
     std::vector<Message> db_readMsgs(int64_t recipient_id);
     bool db_logoutUser(int64_t id);
+    bool db_verifyToken(int64_t user_id, uint64_t token);
 };

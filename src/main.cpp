@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <sqlite3.h>
 #include <string>
@@ -10,12 +11,12 @@
 using std::cout;
 using std::string_view;
 // commands
-int64_t reg_user(int server_socket, const std::string& name, const std::string& passw);
-int64_t login_user(int server_socket, const std::string& name, const std::string& passw);
-int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, const std::string& msg_text);
-std::vector<Message> inbox(int server_socket, int64_t current_user_id);
-bool logout_user(int server_socket, int64_t& current_user_id);
-bool del_user(int server_socket, int64_t& current_user_id);
+int64_t reg_user(int server_socket, const std::string& name, const std::string& passw, uint64_t& token);
+int64_t login_user(int server_socket, const std::string& name, const std::string& passw, uint64_t& token);
+int64_t send_msg(int server_socket, int64_t recip_id, int64_t author_id, uint64_t token, const std::string& msg_text);
+std::vector<Message> inbox(int server_socket, int64_t current_user_id, uint64_t token);
+bool logout_user(int server_socket, int64_t& current_user_id, uint64_t& token);
+bool del_user(int server_socket, int64_t& current_user_id, uint64_t& token);
 // strings
 constexpr string_view STR = "> ";
 constexpr string_view UNKNOWN_COMMAND = "\033[31m[ ERR ] unknown command\033[0m";
@@ -56,7 +57,7 @@ void clear_screen() {
     cout << CLEAR;
 }
 
-int64_t registration_ui(int server_socket) {
+int64_t registration_ui(int server_socket, uint64_t& token) {
     std::string name, passw;
     // username
     cout << "Your name: ";
@@ -78,10 +79,10 @@ int64_t registration_ui(int server_socket) {
     // passw.empty()
     if (passw.empty()) { cout << RED << "[ ERR ] Password is empty!\n" << RESET; return -1; }
     // reg user
-    return reg_user(server_socket, name, passw);
+    return reg_user(server_socket, name, passw, token);
 }
 
-int64_t sendMsg_ui(int server_socket, int64_t current_user_id) {
+int64_t sendMsg_ui(int server_socket, int64_t current_user_id, uint64_t& token) {
     std::string msg_text, recip_inp;
     int64_t recip_id;
     // EOF :)
@@ -124,7 +125,7 @@ int64_t sendMsg_ui(int server_socket, int64_t current_user_id) {
         return -1;
     }
     
-    int64_t res = send_msg(server_socket, recip_id, current_user_id, msg_text);
+    int64_t res = send_msg(server_socket, recip_id, current_user_id, token, msg_text);
     
     if (res != -1) {
         cout << GREEN << "[ OK ] Message sent!\n" << RESET;
@@ -136,7 +137,7 @@ int64_t sendMsg_ui(int server_socket, int64_t current_user_id) {
     return res;
 }
 
-int64_t loginUser_ui(int server_socket, int64_t current_user_id) {
+int64_t loginUser_ui(int server_socket, int64_t current_user_id, uint64_t& token) {
     std::string name, passw;
 
     if (current_user_id != -1) {
@@ -167,7 +168,7 @@ int64_t loginUser_ui(int server_socket, int64_t current_user_id) {
         return -1;
     }
 
-    return login_user(server_socket, name, passw);
+    return login_user(server_socket, name, passw, token);
 }
 
 int main() {
@@ -199,6 +200,7 @@ int main() {
     cout << "Enter 'help' for list of commands\n";
     
     int64_t current_user_id = -1;
+    uint64_t current_token = 0;
     std::string command;
 
     cout << STR << std::flush;
@@ -221,11 +223,13 @@ int main() {
         } else if (command == "help") {
             help();
         } else if (command == "reg") {
-            int64_t new_id = registration_ui(server_socket);
+            int64_t new_id = registration_ui(server_socket, current_token);
 
             if (new_id != -1) {
                 current_user_id = new_id;
                 cout << GREEN << "[ OK ] Registration successful! Your ID: " << current_user_id << "\n" << RESET;
+            } else {
+                cout << RED << "[ ERR ] User is exists\n" << RESET;
             }
         } else if (command == "id") {
             if (current_user_id == -1) {
@@ -242,26 +246,26 @@ int main() {
                 continue;
             }
 
-            if(del_user(server_socket, current_user_id)) {
+            if(del_user(server_socket, current_user_id, current_token)) {
                 current_user_id = -1;
                 cout << GREEN << "[ OK ] User deleted!\n" << RESET;
             }
         } else if (command == "send") {
-            sendMsg_ui(server_socket, current_user_id);
+            sendMsg_ui(server_socket, current_user_id, current_token);
         } else if (command == "login") {
-            int64_t logged_in = loginUser_ui(server_socket, current_user_id);
+            int64_t logged_in = loginUser_ui(server_socket, current_user_id, current_token);
 
             if (logged_in != -1) {
                 current_user_id = logged_in;
                 cout << GREEN << "[ OK ] Successfuly logged in!\n" << RESET;
             }
         } else if (command == "logout") {
-            if (logout_user(server_socket, current_user_id)) {
+            if (logout_user(server_socket, current_user_id, current_token)) {
                 current_user_id = -1;
                 cout << GREEN << "[ OK ] Successfuly logged out!\n" << RESET;
             }
         } else if (command == "inbox") {
-            std::vector<Message> msgs = inbox(server_socket, current_user_id);
+            std::vector<Message> msgs = inbox(server_socket, current_user_id, current_token);
 
             if (msgs.empty()) {
                 cout << YELLOW << "No new messages.\n" << RESET;
